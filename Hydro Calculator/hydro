@@ -1,0 +1,88 @@
+#!/usr/bin/env python3
+import tkinter as tk
+from tkinter import messagebox
+
+class HydroCalcApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Hydroponic Nutrient Calculator")
+        self.root.geometry("400x550")
+        self.root.configure(padx=20, pady=20)
+
+        # --- Constants ---
+        self.GAL_TO_L = 3.785
+
+        # --- UI Elements ---
+        self.create_widgets()
+
+    def create_widgets(self):
+        # Title
+        tk.Label(self.root, text="Nutrient Top-Up Tool", font=("Arial", 16, "bold")).pack(pady=(0, 20))
+
+        # Inputs
+        self.base_ec = self.make_entry("Fertilizer Strength (EC of 1g in 1L):", "0.5")
+        self.current_ec = self.make_entry("Measured System EC:", "0.4")
+        self.current_gal = self.make_entry("Current Water in System (Gallons):", "3.0")
+        
+        tk.Frame(self.root, height=2, bd=1, relief="sunken").pack(fill="x", pady=15)
+
+        self.target_ec = self.make_entry("Desired System EC:", "1.2")
+        self.target_gal = self.make_entry("Target Total Volume (Gallons):", "4.0")
+
+        # Calculate Button
+        self.calc_btn = tk.Button(self.root, text="Calculate Addition", 
+                                  command=self.calculate, bg="#2ecc71", fg="white", 
+                                  font=("Arial", 12, "bold"), pady=10)
+        self.calc_btn.pack(fill="x", pady=20)
+
+        # Results Area
+        self.result_frame = tk.LabelFrame(self.root, text="Required to Add", padx=10, pady=10)
+        self.result_frame.pack(fill="both", expand=True)
+
+        self.res_water = tk.Label(self.result_frame, text="Water: --", font=("Arial", 11))
+        self.res_water.pack(anchor="w")
+        
+        self.res_fert = tk.Label(self.result_frame, text="Fertilizer: --", font=("Arial", 11, "bold"))
+        self.res_fert.pack(anchor="w")
+
+    def make_entry(self, label_text, default_val):
+        label = tk.Label(self.root, text=label_text, font=("Arial", 10))
+        label.pack(anchor="w")
+        entry = tk.Entry(self.root, font=("Arial", 10))
+        entry.insert(0, default_val)
+        entry.pack(fill="x", pady=(0, 10))
+        return entry
+
+    def calculate(self):
+        try:
+            # Get values
+            base = float(self.base_ec.get())
+            c_ec = float(self.current_ec.get())
+            c_gal = float(self.current_gal.get())
+            t_ec = float(self.target_ec.get())
+            t_gal = float(self.target_gal.get())
+
+            if t_gal < c_gal:
+                messagebox.showerror("Error", "Target volume cannot be less than current volume.")
+                return
+
+            # Conversions & Math
+            c_l = c_gal * self.GAL_TO_L
+            t_l = t_gal * self.GAL_TO_L
+            add_gal = t_gal - c_gal
+
+            # Total units logic
+            total_needed_units = (t_l * t_ec) - (c_l * c_ec)
+            grams = total_needed_units / base
+
+            # Update Labels
+            self.res_water.config(text=f"Water: {add_gal:.2f} Gallons", fg="blue")
+            self.res_fert.config(text=f"Fertilizer: {grams:.2f} Grams", fg="green")
+
+        except ValueError:
+            messagebox.showerror("Error", "Please enter valid numbers in all fields.")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = HydroCalcApp(root)
+    root.mainloop()
