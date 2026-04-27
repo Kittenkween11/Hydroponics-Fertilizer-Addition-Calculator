@@ -2,68 +2,275 @@
 import tkinter as tk
 from tkinter import messagebox
 
+try:
+    import customtkinter as ctk
+except ImportError:
+    ctk = None
+
 class HydroCalcApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Hydroponic Nutrient Calculator")
-        self.root.geometry("400x550")
-        self.root.configure(padx=20, pady=20)
+        self.root.geometry("520x680")
+        self.root.minsize(500, 620)
+        self.root.configure(padx=16, pady=16)
 
         # --- Constants ---
         self.GAL_TO_L = 3.785
 
         # --- UI Elements ---
+        self.inputs = {}
         self.create_widgets()
+        self.root.bind("<Return>", self.calculate)
 
     def create_widgets(self):
-        # Title
-        tk.Label(self.root, text="Nutrient Top-Up Tool", font=("Arial", 16, "bold")).pack(pady=(0, 20))
+        if ctk:
+            self.create_customtkinter_ui()
+        else:
+            self.create_tk_ui()
 
-        # Inputs
-        self.base_ec = self.make_entry("Fertilizer Strength (EC of 1g in 1L):", "0.5")
-        self.current_ec = self.make_entry("Measured System EC:", "0.4")
-        self.current_gal = self.make_entry("Current Water in System (Gallons):", "3.0")
-        
-        tk.Frame(self.root, height=2, bd=1, relief="sunken").pack(fill="x", pady=15)
+    def create_customtkinter_ui(self):
+        ctk.set_appearance_mode("System")
+        ctk.set_default_color_theme("green")
+        earthy_bg = "#EEE6DA"
+        earthy_card = "#F8F4EC"
+        earthy_text = "#3E3428"
+        earthy_muted = "#6A5D4D"
+        earthy_primary = "#6F7B3F"
+        earthy_primary_hover = "#5F6A36"
+        earthy_secondary = "#7A654A"
+        earthy_secondary_hover = "#67543D"
+        self.root.configure(fg_color=earthy_bg)
 
-        self.target_ec = self.make_entry("Desired System EC:", "1.2")
-        self.target_gal = self.make_entry("Target Total Volume (Gallons):", "4.0")
+        # Header
+        header = ctk.CTkFrame(self.root, corner_radius=14, fg_color="#E4D9C8")
+        header.pack(fill="x", padx=6, pady=(4, 12))
 
-        # Calculate Button
-        self.calc_btn = tk.Button(self.root, text="Calculate Addition", 
-                                  command=self.calculate, bg="#2ecc71", fg="white", 
-                                  font=("Arial", 12, "bold"), pady=10)
-        self.calc_btn.pack(fill="x", pady=20)
+        ctk.CTkLabel(
+            header,
+            text="Hydroponic Top-Up Assistant",
+            text_color=earthy_text,
+            font=ctk.CTkFont(size=24, weight="bold")
+        ).pack(anchor="w", padx=16, pady=(14, 2))
+        ctk.CTkLabel(
+            header,
+            text="Enter your current readings to calculate exact water and nutrient additions.",
+            text_color=earthy_muted,
+            font=ctk.CTkFont(size=13)
+        ).pack(anchor="w", padx=16, pady=(0, 14))
 
-        # Results Area
-        self.result_frame = tk.LabelFrame(self.root, text="Required to Add", padx=10, pady=10)
-        self.result_frame.pack(fill="both", expand=True)
+        inputs_card = ctk.CTkFrame(self.root, corner_radius=14, fg_color=earthy_card)
+        inputs_card.pack(fill="x", padx=6, pady=(0, 12))
 
-        self.res_water = tk.Label(self.result_frame, text="Water: --", font=("Arial", 11))
+        self.make_ctk_entry(
+            inputs_card,
+            "Fertilizer Strength (EC increase from 1 g in 1 L)",
+            "base_ec",
+            "0.5"
+        )
+        self.make_ctk_entry(inputs_card, "Measured System EC", "current_ec", "0.4")
+        self.make_ctk_entry(inputs_card, "Current Water Volume (Gallons)", "current_gal", "3.0")
+
+        targets_card = ctk.CTkFrame(self.root, corner_radius=14, fg_color=earthy_card)
+        targets_card.pack(fill="x", padx=6, pady=(0, 12))
+
+        self.make_ctk_entry(targets_card, "Target System EC", "target_ec", "1.2")
+        self.make_ctk_entry(targets_card, "Target Total Volume (Gallons)", "target_gal", "4.0")
+
+        button_row = ctk.CTkFrame(self.root, fg_color="transparent")
+        button_row.pack(fill="x", padx=6, pady=(0, 12))
+
+        ctk.CTkButton(
+            button_row,
+            text="Calculate Top-Up",
+            command=self.calculate,
+            height=42,
+            corner_radius=10,
+            fg_color=earthy_primary,
+            hover_color=earthy_primary_hover
+        ).pack(side="left", fill="x", expand=True)
+        ctk.CTkButton(
+            button_row,
+            text="Reset",
+            command=self.reset,
+            height=42,
+            width=100,
+            fg_color=earthy_secondary,
+            hover_color=earthy_secondary_hover
+        ).pack(side="left", padx=(8, 0))
+
+        self.result_frame = ctk.CTkFrame(self.root, corner_radius=14, fg_color=earthy_card)
+        self.result_frame.pack(fill="both", expand=True, padx=6)
+
+        ctk.CTkLabel(
+            self.result_frame,
+            text="Results",
+            text_color=earthy_text,
+            font=ctk.CTkFont(size=18, weight="bold")
+        ).pack(anchor="w", padx=16, pady=(14, 8))
+
+        self.res_water = ctk.CTkLabel(
+            self.result_frame,
+            text="Water to add: --",
+            text_color=earthy_text,
+            font=ctk.CTkFont(size=14)
+        )
+        self.res_water.pack(anchor="w", padx=16, pady=2)
+
+        self.res_fert = ctk.CTkLabel(
+            self.result_frame,
+            text="Fertilizer to add: --",
+            text_color=earthy_text,
+            font=ctk.CTkFont(size=14, weight="bold")
+        )
+        self.res_fert.pack(anchor="w", padx=16, pady=(2, 6))
+
+        self.result_note = ctk.CTkLabel(
+            self.result_frame,
+            text="Tip: Press Enter to calculate quickly.",
+            text_color=earthy_muted
+        )
+        self.result_note.pack(anchor="w", padx=16, pady=(4, 12))
+
+    def create_tk_ui(self):
+        self.root.configure(bg="#EEE6DA")
+
+        header = tk.Frame(self.root, bg="#E4D9C8", padx=14, pady=12)
+        header.pack(fill="x", padx=6, pady=(4, 12))
+        tk.Label(
+            header,
+            text="Hydroponic Top-Up Assistant",
+            bg="#E4D9C8",
+            fg="#3E3428",
+            font=("Arial", 18, "bold")
+        ).pack(anchor="w")
+        tk.Label(
+            header,
+            text="Calculate exact water and fertilizer additions in seconds.",
+            bg="#E4D9C8",
+            fg="#6A5D4D",
+            font=("Arial", 10)
+        ).pack(anchor="w", pady=(4, 0))
+
+        inputs_card = tk.Frame(self.root, bg="#F8F4EC", bd=1, relief="solid", padx=12, pady=12)
+        inputs_card.pack(fill="x", padx=6, pady=(0, 12))
+
+        self.make_tk_entry(inputs_card, "Fertilizer Strength (EC increase from 1 g in 1 L)", "base_ec", "0.5")
+        self.make_tk_entry(inputs_card, "Measured System EC", "current_ec", "0.4")
+        self.make_tk_entry(inputs_card, "Current Water Volume (Gallons)", "current_gal", "3.0")
+
+        targets_card = tk.Frame(self.root, bg="#F8F4EC", bd=1, relief="solid", padx=12, pady=12)
+        targets_card.pack(fill="x", padx=6, pady=(0, 12))
+        self.make_tk_entry(targets_card, "Target System EC", "target_ec", "1.2")
+        self.make_tk_entry(targets_card, "Target Total Volume (Gallons)", "target_gal", "4.0")
+
+        button_row = tk.Frame(self.root, bg="#EEE6DA")
+        button_row.pack(fill="x", padx=6, pady=(0, 12))
+
+        tk.Button(
+            button_row,
+            text="Calculate Top-Up",
+            command=self.calculate,
+            bg="#6F7B3F",
+            fg="white",
+            activebackground="#5F6A36",
+            activeforeground="white",
+            font=("Arial", 11, "bold"),
+            relief="flat",
+            padx=12,
+            pady=10
+        ).pack(side="left", fill="x", expand=True)
+        tk.Button(
+            button_row,
+            text="Reset",
+            command=self.reset,
+            bg="#7A654A",
+            fg="white",
+            activebackground="#67543D",
+            activeforeground="white",
+            relief="flat",
+            padx=12,
+            pady=10
+        ).pack(side="left", padx=(8, 0))
+
+        self.result_frame = tk.Frame(self.root, bg="#F8F4EC", bd=1, relief="solid", padx=12, pady=12)
+        self.result_frame.pack(fill="both", expand=True, padx=6)
+        tk.Label(
+            self.result_frame,
+            text="Results",
+            bg="#F8F4EC",
+            fg="#3E3428",
+            font=("Arial", 14, "bold")
+        ).pack(anchor="w", pady=(0, 8))
+        self.res_water = tk.Label(self.result_frame, text="Water to add: --", bg="#F8F4EC", fg="#3E3428", font=("Arial", 11))
         self.res_water.pack(anchor="w")
-        
-        self.res_fert = tk.Label(self.result_frame, text="Fertilizer: --", font=("Arial", 11, "bold"))
-        self.res_fert.pack(anchor="w")
+        self.res_fert = tk.Label(
+            self.result_frame,
+            text="Fertilizer to add: --",
+            bg="#F8F4EC",
+            fg="#3E3428",
+            font=("Arial", 11, "bold")
+        )
+        self.res_fert.pack(anchor="w", pady=(4, 2))
+        self.result_note = tk.Label(
+            self.result_frame,
+            text="Tip: Press Enter to calculate quickly.",
+            bg="#F8F4EC",
+            fg="#6A5D4D",
+            font=("Arial", 10)
+        )
+        self.result_note.pack(anchor="w", pady=(8, 0))
 
-    def make_entry(self, label_text, default_val):
-        label = tk.Label(self.root, text=label_text, font=("Arial", 10))
-        label.pack(anchor="w")
-        entry = tk.Entry(self.root, font=("Arial", 10))
+    def make_ctk_entry(self, parent, label_text, key, default_val):
+        ctk.CTkLabel(parent, text=label_text, text_color="#4D4032", anchor="w").pack(fill="x", padx=14, pady=(12, 4))
+        entry = ctk.CTkEntry(
+            parent,
+            height=36,
+            fg_color="#F2ECE0",
+            border_color="#B9AA93",
+            text_color="#3E3428"
+        )
         entry.insert(0, default_val)
-        entry.pack(fill="x", pady=(0, 10))
+        entry.pack(fill="x", padx=14, pady=(0, 2))
+        self.inputs[key] = entry
         return entry
 
-    def calculate(self):
+    def make_tk_entry(self, parent, label_text, key, default_val):
+        tk.Label(parent, text=label_text, bg="#F8F4EC", fg="#4D4032", anchor="w", font=("Arial", 10)).pack(fill="x", pady=(8, 4))
+        entry = tk.Entry(
+            parent,
+            font=("Arial", 11),
+            bg="#F2ECE0",
+            fg="#3E3428",
+            insertbackground="#3E3428",
+            relief="flat"
+        )
+        entry.insert(0, default_val)
+        entry.pack(fill="x")
+        self.inputs[key] = entry
+        return entry
+
+    def _set_widget_text(self, widget, text, **kwargs):
+        widget.config(text=text, **kwargs)
+
+    def calculate(self, _event=None):
         try:
             # Get values
-            base = float(self.base_ec.get())
-            c_ec = float(self.current_ec.get())
-            c_gal = float(self.current_gal.get())
-            t_ec = float(self.target_ec.get())
-            t_gal = float(self.target_gal.get())
+            base = float(self.inputs["base_ec"].get())
+            c_ec = float(self.inputs["current_ec"].get())
+            c_gal = float(self.inputs["current_gal"].get())
+            t_ec = float(self.inputs["target_ec"].get())
+            t_gal = float(self.inputs["target_gal"].get())
+
+            if base <= 0:
+                messagebox.showerror("Invalid Input", "Fertilizer strength must be greater than 0.")
+                return
+            if c_ec < 0 or t_ec < 0 or c_gal < 0 or t_gal < 0:
+                messagebox.showerror("Invalid Input", "Values cannot be negative.")
+                return
 
             if t_gal < c_gal:
-                messagebox.showerror("Error", "Target volume cannot be less than current volume.")
+                messagebox.showerror("Invalid Input", "Target volume cannot be less than current volume.")
                 return
 
             # Conversions & Math
@@ -74,15 +281,35 @@ class HydroCalcApp:
             # Total units logic
             total_needed_units = (t_l * t_ec) - (c_l * c_ec)
             grams = total_needed_units / base
+            grams = max(0.0, grams)
 
             # Update Labels
-            self.res_water.config(text=f"Water: {add_gal:.2f} Gallons", fg="blue")
-            self.res_fert.config(text=f"Fertilizer: {grams:.2f} Grams", fg="green")
+            self._set_widget_text(self.res_water, f"Water to add: {add_gal:.2f} gallons")
+            self._set_widget_text(self.res_fert, f"Fertilizer to add: {grams:.2f} grams")
+            self._set_widget_text(self.result_note, "Balanced top-up ready. Add in small increments and recheck EC.")
 
         except ValueError:
-            messagebox.showerror("Error", "Please enter valid numbers in all fields.")
+            messagebox.showerror("Invalid Input", "Please enter valid numbers in all fields.")
+
+    def reset(self):
+        defaults = {
+            "base_ec": "0.5",
+            "current_ec": "0.4",
+            "current_gal": "3.0",
+            "target_ec": "1.2",
+            "target_gal": "4.0"
+        }
+        for key, value in defaults.items():
+            self.inputs[key].delete(0, tk.END)
+            self.inputs[key].insert(0, value)
+        self._set_widget_text(self.res_water, "Water to add: --")
+        self._set_widget_text(self.res_fert, "Fertilizer to add: --")
+        self._set_widget_text(self.result_note, "Tip: Press Enter to calculate quickly.")
 
 if __name__ == "__main__":
-    root = tk.Tk()
+    if ctk:
+        root = ctk.CTk()
+    else:
+        root = tk.Tk()
     app = HydroCalcApp(root)
     root.mainloop()
